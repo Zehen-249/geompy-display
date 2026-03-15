@@ -77,17 +77,37 @@ Breaking changes trigger a major version bump.
 
 ## Releasing
 
-You don't do this manually. Here's what happens automatically:
+Releases are driven by **pushing a version tag** to `main`. There is no Release PR or release-please automation.
 
-1. Every merge to `main` triggers [release-please](https://github.com/googleapis/release-please)
-2. release-please opens (or updates) a **Release PR** that contains:
-   - An updated `CHANGELOG.md` with everything since the last release
-   - A version bump in `pyproject.toml`
-3. When a maintainer merges that Release PR:
-   - A GitHub Release is created with the changelog as release notes
-   - The package is built and published to PyPI automatically
+### How it works
 
-So the release flow is: merge `dev` → `main`, then merge the Release PR that appears.
+1. Merge `dev` → `main` via PR as usual
+2. Create and push a tag:
+
+   ```bash
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+
+3. The `release.yml` workflow triggers automatically and:
+   - Creates a **GitHub Release** with auto-generated release notes (changelog from commits since the last tag)
+   - Tags containing a `-` (e.g. `v1.0.0-beta.1`) are marked as pre-releases
+
+### PyPI publishing
+
+PyPI publishing **only happens on major releases** — i.e. tags matching `vX.0.0` where `X >= 1` (e.g. `v1.0.0`, `v2.0.0`).
+
+Patch and minor releases (e.g. `v0.3.0`, `v1.2.0`) create a GitHub Release with changelog but do **not** upload to PyPI.
+
+### Tag naming
+
+| Tag example | GitHub Release | PyPI publish |
+|---|---|---|
+| `v0.3.0` | Yes | No |
+| `v1.0.0` | Yes | Yes |
+| `v1.2.0` | Yes | No |
+| `v2.0.0` | Yes | Yes |
+| `v1.0.0-beta.1` | Yes (pre-release) | No |
 
 ---
 
@@ -98,9 +118,8 @@ When `dev` has been tested and is ready to ship:
 1. Open a PR from `dev` → `main`
 2. Make sure CI passes
 3. Get a review if possible (even self-review for solo projects)
-4. Merge — this triggers release-please to create/update the Release PR
-5. Review the Release PR (check the changelog looks right, version bump is correct)
-6. Merge the Release PR — this publishes the release and uploads to PyPI
+4. Merge
+5. Push a version tag to trigger the release (see above)
 
 ---
 
