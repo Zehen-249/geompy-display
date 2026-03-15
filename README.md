@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" width="180" alt="NavCube logo"/>
+</p>
+
 # NavCube
 
 A 3D orientation cube widget for PySide6 — works with OpenCASCADE, VTK, raw OpenGL, or anything else with a camera. The core widget has zero renderer dependencies.
