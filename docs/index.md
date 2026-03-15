@@ -8,7 +8,7 @@ title: Home
 A 3D orientation cube widget for PySide6. Drop it into any 3D viewport — OCC, VTK, custom OpenGL, it doesn't matter. The widget has no renderer dependency.
 
 [Get Started]({{ '/getting-started' | relative_url }}){: .btn }
-[View on GitHub](https://github.com/nishikantmandal007/pyside-navicube){: .btn }
+[View on GitHub](https://github.com/nishikantmandal007/navcube){: .btn }
 [PyPI](https://pypi.org/project/navcube/){: .btn }
 
 ---

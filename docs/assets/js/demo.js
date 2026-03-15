@@ -1,5 +1,5 @@
 /**
- * pyside-navicube — interactive browser demo
+ * navcube — interactive browser demo
  *
  * Layout matches the real Osdag viewport:
  *  • OCC-style gray background

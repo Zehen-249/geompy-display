@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for pyside-navicube tests.
+Shared pytest fixtures for navcube tests.
 """
 import sys
 import pytest

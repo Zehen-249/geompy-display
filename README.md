@@ -2,7 +2,7 @@
 
 A 3D orientation cube widget for PySide6. Works with OpenCASCADE, VTK, raw OpenGL, or anything else that has a camera. No renderer dependency in the core widget.
 
-**[Docs](https://nishikantmandal007.github.io/pyside-navicube/)** | **[PyPI](https://pypi.org/project/navcube/)** | **[GitHub](https://github.com/nishikantmandal007/pyside-navicube)**
+**[Docs](https://nishikantmandal007.github.io/navcube/)** | **[PyPI](https://pypi.org/project/navcube/)** | **[GitHub](https://github.com/nishikantmandal007/navcube)**
 
 ---
 
@@ -126,7 +126,7 @@ cube = NavCubeOverlay(parent=your_window, style=style)
 cube.set_style(NavCubeStyle(theme="dark", size=160))
 ```
 
-The full list of style fields is in the [Style Reference](https://nishikantmandal007.github.io/pyside-navicube/style-reference).
+The full list of style fields is in the [Style Reference](https://nishikantmandal007.github.io/navcube/style-reference).
 
 ---
 
