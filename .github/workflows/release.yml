@@ -10,20 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    outputs:
-      is_major: ${{ steps.check.outputs.is_major }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check if major release
-        id: check
-        run: |
-          TAG="${{ github.ref_name }}"
-          # Major release = vX.0.0 where X >= 1 (not v0.x.x)
-          if echo "$TAG" | grep -qE '^v[1-9][0-9]*\.0\.0$'; then
-            echo "is_major=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_major=false" >> $GITHUB_OUTPUT
-          fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -34,15 +22,17 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: release
-    if: needs.release.outputs.is_major == 'true'
+    # Publish for every stable tag (no pre-release suffix like -alpha, -beta, -rc)
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Build and publish
+      - name: Build
         run: pip install build && python -m build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
