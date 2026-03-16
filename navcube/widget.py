@@ -197,14 +197,28 @@ class NavCubeStyle:
     """
 
     # Geometry
-    size: int = 120
-    """Base cube drawing area in pixels (before DPI scaling)."""
+    size: int = 100
+    """Reference cube size in 96-dpi-equivalent pixels.  The widget converts
+    this to actual logical pixels using the screen's physical DPI and device
+    pixel ratio so the cube occupies the same physical area on every display
+    at every OS scale factor.  When *size_fraction* > 0 this value acts only
+    as the fallback while the parent widget has not yet been shown."""
     padding: int = 10
-    """Transparent padding on each side in pixels."""
+    """Transparent padding on each side in pixels (scales with cube size)."""
     scale: float = 27.0
-    """3-D units to screen pixels projection scale."""
+    """3-D units to screen pixels projection scale (auto-scaled with size)."""
     chamfer: float = 0.12
     """FreeCAD-style chamfer ratio for edge/corner bevels."""
+
+    # Adaptive sizing
+    size_fraction: float = 0.0
+    """When > 0, size the cube as this fraction of the parent widget's
+    shorter side (e.g. 0.09 = 9 %).  The cube resizes automatically whenever
+    the parent viewport resizes.  Clamped by *size_min* / *size_max*."""
+    size_min: int = 70
+    """Minimum cube size in 96-dpi-equivalent pixels (used with size_fraction)."""
+    size_max: int = 160
+    """Maximum cube size in 96-dpi-equivalent pixels (used with size_fraction)."""
 
     # Animation / timing
     animation_ms: int = 240
@@ -660,30 +674,73 @@ class NavCubeOverlay(QWidget):
         Recompute _SIZE and _SCALE for the screen this widget is on, then
         apply setFixedSize and rebuild the pixel-space control polygons.
 
-        Called once at construction and again whenever the widget moves to
-        a screen with a different DPI (changeEvent ScreenChangeInternal).
+        Called once at construction, again whenever the widget moves to a
+        screen with a different DPI (changeEvent ScreenChangeInternal), and
+        — when size_fraction > 0 — whenever the parent viewport resizes.
+
+        Sizing strategy
+        ───────────────
+        We target a *physical* size derived from screen.physicalDotsPerInch()
+        so the cube occupies the same number of millimetres on every display
+        at every OS scale factor.  Qt's devicePixelRatio() is used to convert
+        physical pixels to logical (Qt-coordinate) pixels, ensuring correct
+        behaviour whether Qt manages HiDPI internally (Qt 6, dpr > 1) or the
+        OS does bitmap-stretching (dpr = 1).
+
+        When size_fraction > 0 the target physical size is computed as a
+        fraction of the parent widget's shorter logical side converted to
+        physical pixels, then clamped to [size_min, size_max].
         """
         try:
             app = QApplication.instance()
-            if app is None:
-                dpi_scale = 1.0
-            else:
+            screen = None
+            if app is not None:
                 screen = self.screen() if self.isVisible() else None
                 if screen is None:
                     screen = app.primaryScreen()
-                dpi_scale = (screen.logicalDotsPerInch() / 96.0) if screen else 1.0
-                dpi_scale = max(0.75, min(dpi_scale, 4.0))
-        except Exception:
-            dpi_scale = 1.0
 
-        base = self._style.size
-        new_size = round(base * dpi_scale)
+            if screen is not None:
+                # Physical pixel density of the actual panel — invariant to
+                # the OS scale factor (unlike logicalDotsPerInch).
+                physical_dpi = max(72.0, min(screen.physicalDotsPerInch(), 400.0))
+                # Qt's internal logical→physical multiplier.
+                dpr = max(1.0, screen.devicePixelRatio())
+            else:
+                physical_dpi = 96.0
+                dpr = 1.0
+
+            s = self._style
+            ref = s.size  # 96-dpi-equivalent reference pixels
+
+            if s.size_fraction > 0.0 and self.parentWidget() is not None:
+                # Viewport-fraction mode ─────────────────────────────────────
+                # Work in physical pixels throughout so the fraction is
+                # maintained regardless of OS scale / DPI.
+                parent = self.parentWidget()
+                vp_logical = min(parent.width(), parent.height())
+                target_phys = vp_logical * dpr * s.size_fraction
+                # Clamp: convert min/max (96-dpi-equiv px) to physical px
+                min_phys = s.size_min * physical_dpi / 96.0
+                max_phys = s.size_max * physical_dpi / 96.0
+                target_phys = max(min_phys, min(target_phys, max_phys))
+            else:
+                # Fixed physical-size mode ───────────────────────────────────
+                # style.size is expressed as logical px at a 96-dpi reference.
+                # Scale to actual physical pixels on this screen.
+                target_phys = ref * physical_dpi / 96.0
+
+            # Convert physical px → logical Qt px (what setFixedSize expects).
+            new_size = max(40, round(target_phys / dpr))
+
+        except Exception:
+            new_size = self._style.size
+
         if new_size == self._SIZE and hasattr(self, "_ctrl"):
             return
 
         self._SIZE  = new_size
-        self._PAD   = round(self._style.padding * dpi_scale)
-        self._SCALE = self._style.scale * (new_size / base)
+        self._PAD   = max(3, round(self._style.padding * new_size / self._style.size))
+        self._SCALE = self._style.scale * (new_size / self._style.size)
         self._label_font_sizes.clear()
         widget_side = self._SIZE + 2 * self._PAD
         self.setFixedSize(widget_side, widget_side)
@@ -1083,6 +1140,51 @@ class NavCubeOverlay(QWidget):
     # ═══════════════════════════════════════════════════════════════
     #  Qt events
     # ═══════════════════════════════════════════════════════════════
+
+    # ──────────── parent-resize tracking (for size_fraction mode) ────────────
+
+    def _install_parent_filter(self) -> None:
+        """Install an event filter on our parent to catch its resize events."""
+        p = self.parentWidget()
+        if p is None or getattr(self, "_tracked_parent", None) is p:
+            return
+        self._remove_parent_filter()
+        p.installEventFilter(self)
+        self._tracked_parent = p
+
+    def _remove_parent_filter(self) -> None:
+        p = getattr(self, "_tracked_parent", None)
+        if p is not None:
+            try:
+                p.removeEventFilter(self)
+            except RuntimeError:
+                pass
+        self._tracked_parent = None
+
+    def eventFilter(self, obj, event):   # noqa: N802
+        """Resize the cube immediately when the parent viewport resizes.
+
+        Firing synchronously (before the parent's own resizeEvent handler)
+        means any positioning code in the host app reads the already-updated
+        cube dimensions.
+        """
+        if (
+            event.type() == QEvent.Type.Resize
+            and obj is getattr(self, "_tracked_parent", None)
+            and self._style.size_fraction > 0.0
+        ):
+            self._update_dpi()
+        return super().eventFilter(obj, event)
+
+    def showEvent(self, event):   # noqa: N802
+        super().showEvent(event)
+        if self._style.size_fraction > 0.0:
+            self._install_parent_filter()
+        self._update_dpi()
+
+    def hideEvent(self, event):   # noqa: N802
+        super().hideEvent(event)
+        self._remove_parent_filter()
 
     def resizeEvent(self, event):   # noqa: N802
         super().resizeEvent(event)
