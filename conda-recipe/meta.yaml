@@ -1,0 +1,54 @@
+{% set name = "navcube" %}
+{% set version = "1.0.1" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  # url: https://github.com/geompy/navcube/archive/refs/tags/v{{ version }}.tar.gz
+  # sha256: <ADD_SHA256_HERE>
+
+  path: ..
+
+build:
+  noarch: python
+  script: "{{ PYTHON }} -m pip install . --no-deps -vv"
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - hatchling
+
+  run:
+    - python >=3.10
+    - pyside6
+    - numpy
+
+test:
+  requires:
+    - pip
+    - pytest
+  source_files:
+    - tests
+  imports:
+    - navcube
+  commands:
+    - pip check
+    - pytest tests -v --tb=short --disable-warnings
+
+about:
+  home: https://github.com/geompy/navcube
+  summary: "A 3D orientation cube widget for PySide6 - renderer-agnostic, drop-in ready"
+  description: |
+    A 3D orientation cube widget for PySide6 that is renderer-agnostic
+    and designed to be easily integrated into CAD and visualization workflows.
+  license: MIT
+  license_family: MIT
+  doc_url: https://geompy.github.io/navcube/
+  dev_url: https://github.com/geompy/navcube
+
+extra:
+  recipe-maintainers:
+    - GEOMPY
