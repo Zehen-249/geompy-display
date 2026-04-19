@@ -39,6 +39,7 @@ from navcube import NavCubeOverlay
 
 cube = NavCubeOverlay(parent=your_window)
 cube.show()
+cube.mark_ready()
 
 # Push your camera state in whenever it changes
 cube.push_camera(dx, dy, dz, ux, uy, uz)
@@ -79,6 +80,7 @@ cube.viewOrientationRequested.connect(
         label.setText(f"Dir ({dx:+.2f}, {dy:+.2f}, {dz:+.2f})  Up ({ux:+.2f}, {uy:+.2f}, {uz:+.2f})")
 )
 cube.show()
+cube.mark_ready()
 
 # NavCubeOverlay is a Qt.Tool floating window — position needs global
 # screen coordinates, not parent-relative coordinates.
